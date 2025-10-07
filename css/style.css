@@ -1,0 +1,158 @@
+  :root {
+        --monitor-width: 98vw;
+        --monitor-height: 95vh;
+        --monitor-padding: 20px;
+        --screen-bg: #081408;
+        --scanline-color-1: rgba(65, 92, 76, 0.15);
+        --scanline-color-2: rgba(0, 255, 100, 0.05);
+        --phosphor-color: #45ff45;
+        --phosphor-glow-1: #39ff39;
+        --phosphor-glow-2: #159915;
+        --text-info: #88ff88;
+    }
+    html, body {
+        margin: 0;
+        height: 100%;
+        background: radial-gradient(circle at center, #1a1a1a 0%, #000 90%);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        font-family: 'Fira Code', monospace;
+    }
+    .monitor {
+        position: relative;
+        width: var(--monitor-width);
+        height: var(--monitor-height);
+        max-width: 1600px;
+        background: linear-gradient(145deg, #333 0%, #111 100%);
+        border-radius: 2.5rem;
+        box-shadow:
+            0 0 0 15px #080808,
+            inset 0 0 80px rgba(0,0,0,0.8),
+            0 50px 100px rgba(0,0,0,0.6);
+        display: flex;
+        padding: var(--monitor-padding);
+        box-sizing: border-box;
+        transition: all 0.3s ease-in-out;
+    }
+    .screen {
+        width: 100%;
+        height: 100%;
+        background-color: var(--screen-bg);
+        border-radius: 1.5rem;
+        overflow: hidden;
+        position: relative;
+        box-shadow: inset 0 0 50px rgba(0,0,0,0.7);
+        cursor: text;
+        transition: border-radius 0.3s ease-in-out;
+        display: flex;
+        flex-direction: column;
+    }
+    .screen::before, .screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
+    .screen::before {
+        background: radial-gradient(ellipse at center, rgba(0,255,100,0.1) 0%, transparent 70%);
+        z-index: 2;
+    }
+    .screen::after {
+        background-image:
+            repeating-linear-gradient(0deg, transparent, var(--scanline-color-1) 1px, transparent 2px),
+            repeating-linear-gradient(90deg, var(--scanline-color-2) 1px, transparent 2px);
+        background-size: 100% 3px, 3px 100%;
+        opacity: 0.4;
+        animation: noise 0.15s linear infinite;
+        z-index: 3;
+    }
+    .terminal {
+        color: var(--phosphor-color);
+        font-size: clamp(14px, 1.5vw, 18px);
+        padding: 25px;
+        box-sizing: border-box;
+        overflow-y: auto;
+        position: relative;
+        z-index: 1;
+        text-shadow:
+            0 0 5px var(--phosphor-glow-1),
+            0 0 15px var(--phosphor-glow-2);
+        animation: flicker 0.1s infinite;
+        transition: padding 0.3s ease-in-out;
+        flex-grow: 1;
+    }
+    @keyframes noise { 0% { background-position: 0 0; } 100% { background-position: 10% 10%; } }
+    @keyframes flicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.98; } }
+    @keyframes blink { 50% { opacity: 0; } }
+    .cursor {
+        display: inline-block;
+        background-color: var(--phosphor-color);
+        box-shadow: 0 0 5px var(--phosphor-glow-1);
+        width: 10px;
+        height: 1.2em;
+        animation: blink 1.2s step-end infinite;
+        vertical-align: bottom;
+        margin-left: 2px;
+    }
+    .terminal::-webkit-scrollbar { width: 0; }
+    .text-success { color: var(--phosphor-color); }
+    .text-error { color: #ff5555; }
+    .text-info { color: var(--text-info); }
+    .text-comment { color: #45ff45; opacity: 0.6; }
+
+    .mobile-prompt-label, .input-bar { display: none; }
+    
+    .prompt-label { color: var(--text-info); white-space: nowrap; }
+    .input-area {
+        flex-grow: 1;
+        outline: none;
+        word-break: break-all;
+        min-width: 10px;
+        color: #a2ffbd;
+    }
+    .history-buttons button {
+        background: transparent;
+        border: 1px solid var(--phosphor-color);
+        color: var(--phosphor-color);
+        font-size: 1em;
+        padding: 2px 8px;
+        margin-left: 8px;
+        border-radius: 4px;
+        line-height: 1.5;
+        opacity: 0.8;
+    }
+
+    .copy-button {
+        background-color: transparent;
+        border: 1px solid var(--phosphor-color);
+        color: var(--phosphor-color);
+        font-family: 'Fira Code', monospace;
+        font-size: 0.9em;
+        padding: 5px 10px;
+        margin: 15px 0 10px 0;
+        cursor: pointer;
+        text-shadow: inherit;
+        transition: all 0.2s ease;
+    }
+    .copy-button:hover { background-color: var(--phosphor-color); color: var(--screen-bg); }
+
+    @media (max-width: 768px) {
+        body { align-items: flex-start; }
+        .monitor {
+            width: 100vw; height: 100vh;
+            max-height: 100%; border-radius: 0;
+            padding: 0; box-shadow: none;
+        }
+        .screen { border-radius: 0; }
+        .terminal { font-size: clamp(13px, 3vw, 16px); padding: 15px 15px 0 15px; }
+        .copy-button { padding: 8px 12px; font-size: 1em; }
+        
+        .prompt.desktop-only { display: none; }
+        
+        .mobile-prompt-label {
+            display: block;
+            padding: 10px 15px 8px 15px;
+            color: var(--text-info);
+            font-size: 0.9em;
+            opacity: 0.8;
+            flex-shrink: 0;
+        }
+        .input-bar { display: flex; }
+    }
