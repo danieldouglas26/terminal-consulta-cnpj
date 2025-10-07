@@ -37,17 +37,16 @@
 
    <script type="text/javascript" src="https://js-dos.com/cdn/js-dos-api.js"></script>
      <script type="text/javascript">
-
-var dosbox = new Dosbox({
-     id: "dosbox",
-     onload: function (dosbox) {
-     dosbox.run("dos/zip/Doom.zip", "./DOOM.EXE");
-     },
-     onrun: function (dosbox, app) {
-     console.log("App '" + app + "' is runned");
-     }
-     });
-28     </script>
+       var dosbox = new Dosbox({
+         id: "dosbox",
+         onload: function (dosbox) {
+           dosbox.run("upload/Duke Nukem 3d-@digitalwalt.zip", "/DUKE3D.EXE");
+         },
+         onrun: function (dosbox, app) {
+           console.log("App '" + app + "' is runned");
+         }
+       });
+     </script>
 </body>
 
 </html>
