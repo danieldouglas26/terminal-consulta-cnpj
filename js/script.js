@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'startx':
                 addLine("Iniciando interface gráfica...", 'text-info');
-                window.open('loginv3.html', '_blank');
+                window.open('../With-Desktop/loginv3.html', '_blank');
                 break;
             default:
                 addLine(`bash: comando não encontrado: ${command}`, 'text-error');
@@ -259,13 +259,54 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-    async function fetchCnpjData(cnpj) {
+     async function fetchCnpjData(cnpj) {
         addLine('Consultando CNPJ...', 'text-comment');
+        
+        // Simulação da resposta da requisição com o JSON fornecido
+        const simulatedApiResponse = {
+            "success": true,
+            "message": null,
+            "data": {
+                "cnpj": "00000000000191",
+                "situacaoCadastral": "Ativa",
+                "dataSituacaoCadastral": "03/11/2005",
+                "motivoSituacaoCadastral": "SEM MOTIVO",
+                "razaoSocial": "BANCO DO BRASIL SA",
+                "nomeFantasia": "DIRECAO GERAL",
+                "dataInicioAtividades": "01/08/1966",
+                "matriz": "Sim",
+                "naturezaJuridica": "Sociedade de Economia Mista (2038)",
+                "capitalSocial": 120000000000,
+                "email": "SECEX@BB.COM.BR",
+                "telefone": "(61) 34939002",
+                "logradouro": "QUADRA SAUN QUADRA 5 BLOCO B TORRE I, II, III",
+                "numero": "SN",
+                "complemento": "ANDAR T I SL S101 A S1602 T II SL C101 A C1602 TIII SL N101 A N1602",
+                "bairro": "ASA NORTE",
+                "municipio": "BRASILIA",
+                "uf": "DF",
+                "cep": "70040-912",
+                "dataSituacaoEspecial": null,
+                "situacaoEspecial": null
+            }
+        };
+
         try {
+            // MOCK: Usando a resposta simulada em vez do fetch real
+            // Se quiser reativar o fetch real, descomente as 3 linhas abaixo e remova o MOCK.
+            
             const response = await fetch(`https://kitana.opencnpj.com/cnpj/${cnpj}`);
             if (!response.ok) throw new Error(`API indisponível (status: ${response.status})`);
             const data = await response.json();
-            displayDataAsTable(data);
+            
+            
+            //const data = simulatedApiResponse; // Usando a resposta simulada
+
+            if (!data.success || !data.data) {
+                throw new Error(data.message || "CNPJ não encontrado ou erro na resposta da API.");
+            }
+            
+            displayDataAsTable(data.data); // Passa apenas o objeto 'data' com as informações
         } catch (error) {
             displayError(error.message);
         } finally {
@@ -273,15 +314,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function displayDataAsTable(data) {
-        const d = data.estabelecimento;
+    function displayDataAsTable(cnpjData) {
+        // Renomeia para clareza e usa as chaves diretamente do objeto cnpjData
+        const d = cnpjData; 
+        
+        // Função auxiliar para formatar o capital social
+        const formatCurrency = (value) => {
+             // Garante que o valor seja numérico antes de formatar
+            const num = parseFloat(value) / 100; // Capital social já está em centavos/unidades
+            return `R$ ${num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        };
+
         const formattedData = {
-            "CNPJ": d.cnpj, "Razao Social": data.razao_social, "Nome Fantasia": d.nome_fantasia,
-            "Situacao Cadastral": d.situacao_cadastral, "Data Inicio Atividades": d.data_inicio_atividade,
-            "Natureza Juridica": data.natureza_juridica.descricao, "Capital Social": `R$ ${parseFloat(data.capital_social).toFixed(2)}`,
-            "Email": d.email, "Telefone": `${d.ddd1} ${d.telefone1}`,
-            "Endereco": `${d.tipo_logradouro} ${d.logradouro}, ${d.numero}`,
-            "Bairro": d.bairro, "Municipio": `${d.cidade.nome} - ${d.estado.sigla}`, "CEP": d.cep
+            "CNPJ": d.cnpj ? formatCnpj(d.cnpj) : "N/A", // Reutiliza a função formatCnpj
+            "Razão Social": d.razaoSocial,
+            "Nome Fantasia": d.nomeFantasia || "N/A", // Pode ser null
+            "Situação Cadastral": d.situacaoCadastral,
+            "Data Situação": d.dataSituacaoCadastral,
+            "Data Início Atividades": d.dataInicioAtividades,
+            "Natureza Jurídica": d.naturezaJuridica,
+            // Capital social agora é formatado como moeda
+            "Capital Social": formatCurrency(d.capitalSocial), 
+            "Email": d.email || "N/A",
+            "Telefone": d.telefone || "N/A",
+            "Logradouro": d.logradouro,
+            "Número": d.numero,
+            "Complemento": d.complemento || "N/A",
+            "Bairro": d.bairro,
+            "Município / UF": `${d.municipio} - ${d.uf}`,
+            "CEP": d.cep
         };
         
         let textToCopy = '*** Dados da Empresa ***\n\n';
@@ -293,15 +354,21 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const key in formattedData) {
                 const value = formattedData[key] || "N/A";
                 addLine(`${key}: ${value}`, 'text-info');
-                              textToCopy += `${key}: ${value}\n`;
+                textToCopy += `${key}: ${value}\n`;
             }
         } else {
-            const contentWidth = 70;
+            // Ajusta a largura para caber no terminal
+            const keyWidth = 25; 
+            const contentWidth = 70; // Largura total
+            const valueWidth = contentWidth - keyWidth - 7; // 7 = | : |
             const border = `+${'-'.repeat(contentWidth)}+`;
             addLine(border, 'text-success');
+            
             for (const key in formattedData) {
                 const value = formattedData[key] || "N/A";
-                const line = `| ${key.padEnd(25)}: ${(value).toString().substring(0, contentWidth - 30).padEnd(contentWidth - 30)}|`;
+                // Limita o valor para não quebrar o layout da tabela, mas garante que o 'textToCopy' tenha o valor completo.
+                const displayValue = value.toString().substring(0, valueWidth);
+                const line = `| ${key.padEnd(keyWidth)}: ${displayValue.padEnd(valueWidth)}|`;
                 addLine(line, 'text-success');
                 textToCopy += `${key}: ${value}\n`;
             }
