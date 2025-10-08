@@ -427,7 +427,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Formata o CNAE principal
             const cnaePrincipal = d.cnaes[0];
-            let cnaeLine = `PRINCIPAL: ${cnaePrincipal.cnae} - ${cnaePrincipal.descricao}`;
+             addLine('PRINCIPAL:');
+                textToCopy += 'PRINCIPAL:\n';
+
+            //let cnaeLine = `PRINCIPAL: ${cnaePrincipal.cnae} - ${cnaePrincipal.descricao}`;
+            let cnaeLine = `${cnaePrincipal.cnae} - ${cnaePrincipal.descricao}`;
             addLine(cnaeLine, 'text-success');
             textToCopy += cnaeLine + '\n';
             
@@ -446,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- NOVO: Exibição e Cópia dos Sócios ---
         if (d.socios && d.socios.length > 0) {
-            const maxSociosDisplay = 5; // Reduzido para 5 para manter a tela limpa
+            const maxSociosDisplay = 10; // Reduzido para 5 para manter a tela limpa
             
             // Adiciona a quebra de linha para a cópia de texto
             textToCopy += `\n*** Quadro de Sócios e Administradores (${d.socios.length} no total) ***\n`; 
