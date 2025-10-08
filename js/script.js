@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isFormatting = false;
     let isMatrixRunning = false;
     let currentInputArea;
-    let isMuted = false; // NOVO: Flag para controlar o som
+    let isMuted = false;
 
     const bootSequence = [
         { text: "Booting Capsys OS v4.0 (Consulta Mode)...", class: 'text-info' },
@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { text: " ", delay: 100 },
         { text: "Terminal de Consulta de CNPJ pronto.", class: 'text-info' },
         { text: " ", delay: 100 },
-        { text: `Data: ${new Date().toString()}`, class: 'text-comment' }, // Data original restaurada
+        { text: `Data: ${new Date().toString()}`, class: 'text-comment' },
         { text: " ", delay: 100 }
     ];
 
@@ -160,7 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'ArrowUp': e.preventDefault(); navigateHistory('up'); break;
             case 'ArrowDown': e.preventDefault(); navigateHistory('down'); break;
             default:
-                // NOVO: Som para digitação e backspace
                 if (!isMuted && (e.key.length === 1 || e.key === 'Backspace')) {
                     keySound.currentTime = 0;
                     keySound.play();
@@ -190,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const parts = command.split(' ');
         const baseCommand = parts[0];
         switch(baseCommand) {
-            case 'sound': // NOVO: Comando para ligar/desligar som
+            case 'sound':
                 isMuted = !isMuted;
                 addLine(isMuted ? "Sons desabilitados." : "Sons habilitados.", 'text-comment');
                 break;
@@ -207,16 +206,16 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'date': addLine(new Date().toString(), 'text-comment'); break;
             case 'whoami': addLine('guest', 'text-info'); break;
             case 'capsys':
-   const logo = [
-        "   _____             _____                 ",
-        "  / ____|           / ____|                ",
-        " | |     __ _ _ __ | (___   ",
-        " | |    / _` | '_ \\ \\___ \\",
-        " | |___| (_| | |_) |____) | ",
-        "  \\_____\\__,_| .__/|_____/  ",
-        "             | |                            ",
-        "             |_|                            ",
-    ];                logo.forEach(line => addLine(line));
+    const logo = [
+        "    _____           _____                 ",
+        "   / ____|         / ____|                ",
+        "  | |   | __ _ _ __ | (___   ",
+        "  | |  / _` | '_ \\ \\___ \\",
+        "  | |___| (_| | |_) |____) | ",
+        "   \\_____\\__,_| .__/|_____/ ",
+        "               | |                      ",
+        "               |_|                      ",
+    ];            logo.forEach(line => addLine(line));
                 addLine("Visite nosso site: https://capsys.com.br", 'text-info');
                 setTimeout(() => window.open('https://capsys.com.br', '_blank'), 500);
                 break;
@@ -259,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-     async function fetchCnpjData(cnpj) {
+    async function fetchCnpjData(cnpj) {
         addLine('Consultando CNPJ...', 'text-comment');
         
         // Simulação da resposta da requisição com o JSON fornecido
@@ -287,26 +286,69 @@ document.addEventListener('DOMContentLoaded', () => {
                 "uf": "DF",
                 "cep": "70040-912",
                 "dataSituacaoEspecial": null,
-                "situacaoEspecial": null
+                "situacaoEspecial": null,
+                "opcaoSimples": "N",
+                "opcaoMei": "N",
+                "cnaes": [
+                    {
+                        "cnae": "6422100",
+                        "descricao": "Bancos múltiplos, com carteira comercial"
+                    },
+                    {
+                        "cnae": "6499999",
+                        "descricao": "Outras atividades de serviços financeiros não especificadas anteriormente"
+                    }
+                ],
+                "socios": [
+                    {
+                        "nomeSocio": "EDUARDO CESAR PASA",
+                        "descricao": "Diretor",
+                        "identificadorSocio": 2,
+                        "cnpjCpfSocio": "***035920**",
+                        "dataEntradaSociedade": "30/06/2015",
+                        "nomeRepresentante": null,
+                        "faixaEtaria": "51-60 anos"
+                    },
+                    {
+                        "nomeSocio": "LUCINEIA POSSAR",
+                        "descricao": "Diretor",
+                        "identificadorSocio": 2,
+                        "cnpjCpfSocio": "***309199**",
+                        "dataEntradaSociedade": "28/11/2017",
+                        "nomeRepresentante": null,
+                        "faixaEtaria": "51-60 anos"
+                    },
+                    {
+                        "nomeSocio": "FELIPE GUIMARAES GEISSLER PRINCE",
+                        "descricao": "Diretor",
+                        "identificadorSocio": 2,
+                        "cnpjCpfSocio": "***345856**",
+                        "dataEntradaSociedade": "10/07/2020",
+                        "nomeRepresentante": null,
+                        "faixaEtaria": "41-50 anos"
+                    },
+                    // ... (demais sócios)
+                ]
             }
         };
 
         try {
             // MOCK: Usando a resposta simulada em vez do fetch real
-            // Se quiser reativar o fetch real, descomente as 3 linhas abaixo e remova o MOCK.
+            // Se quiser reativar o fetch real, remova a linha abaixo.
+           // const data = simulatedApiResponse; 
             
+           
+            // DESCOMENTE PARA O FETCH REAL:
             const response = await fetch(`https://kitana.opencnpj.com/cnpj/${cnpj}`);
             if (!response.ok) throw new Error(`API indisponível (status: ${response.status})`);
             const data = await response.json();
-            
-            
-            //const data = simulatedApiResponse; // Usando a resposta simulada
+           
 
             if (!data.success || !data.data) {
                 throw new Error(data.message || "CNPJ não encontrado ou erro na resposta da API.");
             }
             
-            displayDataAsTable(data.data); // Passa apenas o objeto 'data' com as informações
+            displayDataAsTable(data.data);
         } catch (error) {
             displayError(error.message);
         } finally {
@@ -315,26 +357,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayDataAsTable(cnpjData) {
-        // Renomeia para clareza e usa as chaves diretamente do objeto cnpjData
-        const d = cnpjData; 
-        
-        // Função auxiliar para formatar o capital social
+        const d = cnpjData;
+        const keyWidth = 25; 
+        const contentWidth = 70;
+        const valueWidth = contentWidth - keyWidth - 7;
+        const border = `+${'-'.repeat(contentWidth)}+`;
+        let textToCopy = '*** Dados da Empresa ***\n\n';
+
+        // --- Funções Auxiliares ---
         const formatCurrency = (value) => {
-             // Garante que o valor seja numérico antes de formatar
-            const num = parseFloat(value) / 100; // Capital social já está em centavos/unidades
+            const num = parseFloat(value);
             return `R$ ${num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         };
+        const formatYesNo = (value) => value === 'S' || value === 'Sim' ? 'SIM' : 'NÃO';
 
+        // --- Dados Principais ---
         const formattedData = {
-            "CNPJ": d.cnpj ? formatCnpj(d.cnpj) : "N/A", // Reutiliza a função formatCnpj
+            "CNPJ": d.cnpj ? formatCnpj(d.cnpj) : "N/A",
             "Razão Social": d.razaoSocial,
-            "Nome Fantasia": d.nomeFantasia || "N/A", // Pode ser null
+            "Nome Fantasia": d.nomeFantasia || "N/A",
             "Situação Cadastral": d.situacaoCadastral,
             "Data Situação": d.dataSituacaoCadastral,
             "Data Início Atividades": d.dataInicioAtividades,
             "Natureza Jurídica": d.naturezaJuridica,
-            // Capital social agora é formatado como moeda
-            "Capital Social": formatCurrency(d.capitalSocial), 
+            "Capital Social": formatCurrency(d.capitalSocial),
+            "Opção Simples": formatYesNo(d.opcaoSimples), // NOVO
+            "Opção MEI": formatYesNo(d.opcaoMei), // NOVO
             "Email": d.email || "N/A",
             "Telefone": d.telefone || "N/A",
             "Logradouro": d.logradouro,
@@ -345,28 +393,20 @@ document.addEventListener('DOMContentLoaded', () => {
             "CEP": d.cep
         };
         
-        let textToCopy = '*** Dados da Empresa ***\n\n';
-        const isMobile = window.innerWidth <= 768;
-
+        // --- Geração da Saída no Terminal (Tabela/Lista) ---
         addLine(' ', 'text-success');
-
-        if (isMobile) {
+        addLine('--- DADOS CADASTRAIS (Receita Federal) ---', 'text-info');
+        
+        if (window.innerWidth <= 768) {
             for (const key in formattedData) {
                 const value = formattedData[key] || "N/A";
                 addLine(`${key}: ${value}`, 'text-info');
                 textToCopy += `${key}: ${value}\n`;
             }
         } else {
-            // Ajusta a largura para caber no terminal
-            const keyWidth = 25; 
-            const contentWidth = 70; // Largura total
-            const valueWidth = contentWidth - keyWidth - 7; // 7 = | : |
-            const border = `+${'-'.repeat(contentWidth)}+`;
             addLine(border, 'text-success');
-            
             for (const key in formattedData) {
                 const value = formattedData[key] || "N/A";
-                // Limita o valor para não quebrar o layout da tabela, mas garante que o 'textToCopy' tenha o valor completo.
                 const displayValue = value.toString().substring(0, valueWidth);
                 const line = `| ${key.padEnd(keyWidth)}: ${displayValue.padEnd(valueWidth)}|`;
                 addLine(line, 'text-success');
@@ -375,12 +415,75 @@ document.addEventListener('DOMContentLoaded', () => {
             addLine(border, 'text-success');
         }
 
+        // --- NOVO: Exibição e Cópia dos CNAEs ---
+        if (d.cnaes && d.cnaes.length > 0) {
+            
+            // Adiciona a quebra de linha para a cópia de texto
+            textToCopy += '\n*** Atividades Econômicas (CNAEs) ***\n'; 
+            
+            // Inicia a seção no terminal
+            addLine(' ', 'text-info');
+            addLine('--- ATIVIDADES ECONÔMICAS (CNAEs) ---', 'text-info');
+
+            // Formata o CNAE principal
+            const cnaePrincipal = d.cnaes[0];
+            let cnaeLine = `PRINCIPAL: ${cnaePrincipal.cnae} - ${cnaePrincipal.descricao}`;
+            addLine(cnaeLine, 'text-success');
+            textToCopy += cnaeLine + '\n';
+            
+            // Formata os CNAEs secundários (se existirem)
+            const cnaesSecundarios = d.cnaes.slice(1);
+            if (cnaesSecundarios.length > 0) {
+                addLine('SECUNDÁRIAS:', 'text-comment');
+                textToCopy += 'SECUNDÁRIAS:\n';
+                cnaesSecundarios.forEach(cnae => {
+                    cnaeLine = `- ${cnae.cnae} - ${cnae.descricao}`;
+                    addLine(cnaeLine, 'text-success');
+                    textToCopy += cnaeLine + '\n';
+                });
+            }
+        }
+
+        // --- NOVO: Exibição e Cópia dos Sócios ---
+        if (d.socios && d.socios.length > 0) {
+            const maxSociosDisplay = 5; // Reduzido para 5 para manter a tela limpa
+            
+            // Adiciona a quebra de linha para a cópia de texto
+            textToCopy += `\n*** Quadro de Sócios e Administradores (${d.socios.length} no total) ***\n`; 
+
+            // Inicia a seção no terminal
+            addLine(' ', 'text-info');
+            addLine(`--- QUADRO DE SÓCIOS E ADMINISTRADORES (Exibindo ${Math.min(maxSociosDisplay, d.socios.length)}) ---`, 'text-info');
+
+            // Exibe um número limitado de sócios no terminal
+            const sociosParaMostrar = d.socios.slice(0, maxSociosDisplay);
+            sociosParaMostrar.forEach(socio => {
+                const socioLine = `> ${socio.nomeSocio} (${socio.faixaEtaria || 'N/A'}) - ${socio.descricao} (Desde: ${socio.dataEntradaSociedade})`;
+                addLine(socioLine, 'text-success');
+            });
+
+            if (d.socios.length > maxSociosDisplay) {
+                const remaining = d.socios.length - maxSociosDisplay;
+                addLine(`... e mais ${remaining} sócios/administradores (Apenas na cópia).`, 'text-comment');
+            }
+
+            // **IMPORTANTE**: Adiciona TODOS os sócios à área de cópia de texto
+            d.socios.forEach(socio => {
+                const socioCopyLine = `> ${socio.nomeSocio} (CPF/CNPJ: ${socio.cnpjCpfSocio}) - ${socio.descricao} (Desde: ${socio.dataEntradaSociedade} / Faixa Etária: ${socio.faixaEtaria || 'N/A'})`;
+                textToCopy += socioCopyLine + '\n';
+            });
+        }
+
+
+        // --- Botão de Copiar ---
+        addLine(' ', 'text-success');
         const buttonWrapper = document.createElement('div');
         const copyButton = document.createElement('button');
         copyButton.innerText = '[ Copiar Resultado ]';
         copyButton.className = 'copy-button';
 
         copyButton.addEventListener('click', () => {
+            // Certifica-se de que a cópia contém *tudo*
             navigator.clipboard.writeText(textToCopy.trim())
                 .then(() => {
                     copyButton.innerText = 'Copiado para a área de transferência!';
@@ -495,7 +598,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('keydown', stopMatrix, { capture: true, once: true });
     }
 
-  screen.addEventListener('click', (e) => {
+ screen.addEventListener('click', (e) => {
         if (!inputBar.contains(e.target)) focusAndMoveCursorToEnd(currentInputArea);
     });
 
