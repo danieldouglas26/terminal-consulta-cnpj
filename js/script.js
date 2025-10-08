@@ -262,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchCnpjData(cnpj) {
         addLine('Consultando CNPJ...', 'text-comment');
         try {
-            const response = await fetch(`https://publica.cnpj.ws/cnpj/${cnpj}`);
+            const response = await fetch(`https://kitana.opencnpj.com/cnpj/${cnpj}`);
             if (!response.ok) throw new Error(`API indisponível (status: ${response.status})`);
             const data = await response.json();
             displayDataAsTable(data);
