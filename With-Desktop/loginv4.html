@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Web Terminal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background: rgba(29, 34, 42, 0.9);
+            --title-bar: #181c22;
+            --text: #e0e2e4;
+            --prompt: #61afef;
+            --dir: #61afef;
+            --file: #e0e2e4;
+            --shadow: rgba(0, 0, 0, 0.6);
+            --font: 'Fira Code', monospace;
+        }
+
+        [data-theme="light"] {
+            --background: rgba(240, 240, 240, 0.9);
+            --title-bar: #e0e0e0;
+            --text: #2c3e50;
+            --prompt: #2980b9;
+            --dir: #2980b9;
+            --file: #2c3e50;
+            --shadow: rgba(0, 0, 0, 0.2);
+        }
+
+        [data-theme="matrix"] {
+            --background: rgba(0, 20, 0, 0.9);
+            --title-bar: #001000;
+            --text: #00ff00;
+            --prompt: #00ff00;
+            --dir: #33ff33;
+            --file: #00ff00;
+        }
+
+        body, html {
+            height: 100%; margin: 0; padding: 0; overflow: hidden;
+        }
+
+        body {
+            background: url('https://images.hdqwalls.com/wallpapers/debian-linux-4k-ro.jpg') center/cover no-repeat;
+            font-family: var(--font);
+        }
+
+        .terminal-window {
+            width: 850px; height: 550px;
+            background-color: var(--background);
+            border: 1px solid #555;
+            border-radius: 8px;
+            box-shadow: 0 15px 40px var(--shadow);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            backdrop-filter: blur(8px);
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s ease-in-out;
+        }
+
+        .terminal-window::before {
+            content: ''; position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2; background-size: 100% 2px, 3px 100%;
+            pointer-events: none; animation: scanlines 20s linear infinite;
+        }
+        @keyframes scanlines { from { background-position: 0 0; } to { background-position: 0 100%; } }
+
+        .terminal-window.maximized { width: 100%; height: 100%; top: 0; left: 0; transform: none; border-radius: 0; }
+        .terminal-window.minimized { height: 38px; width: 250px; top: calc(100% - 38px); left: 20px; transform: none; }
+
+        .title-bar {
+            background-color: var(--title-bar);
+            padding: 8px 12px;
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: move; flex-shrink: 0;
+        }
+        .title { color: #ccc; font-size: 14px; user-select: none; }
+        .window-controls { display: flex; gap: 8px; }
+        .control-btn { width: 12px; height: 12px; border-radius: 50%; cursor: pointer; }
+        .close { background-color: #ff5f56; }
+        .minimize { background-color: #ffbd2e; }
+        .maximize { background-color: #27c93f; }
+
+        .terminal {
+            flex-grow: 1; padding: 15px;
+            color: var(--text); font-size: 1rem;
+            overflow-y: auto; word-break: break-all;
+        }
+        .terminal::-webkit-scrollbar { width: 8px; }
+        .terminal::-webkit-scrollbar-track { background: transparent; }
+        .terminal::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.2); border-radius: 4px; }
+
+        .line, .output-line { white-space: pre-wrap; margin-bottom: 2px; }
+        .prompt-user, .prompt-path { color: var(--prompt); }
+        .prompt-symbol { margin: 0 8px; }
+        .input-area {
+            display: inline-block; outline: none; border: none;
+            background: transparent; color: inherit;
+            font-family: inherit; font-size: inherit; width: 80%;
+        }
+        .cursor {
+            display: inline-block; background-color: var(--text);
+            width: 10px; height: 1.2em;
+            animation: blink 1s step-end infinite; vertical-align: bottom;
+        }
+        @keyframes blink { 50% { background-color: transparent; } }
+
+        .ls-item.directory { color: var(--dir); }
+        .ls-item.file { color: var(--file); }
+    </style>
+</head>
+<body data-theme="dark">
+
+<div id="terminal-window" class="terminal-window">
+    <div id="title-bar" class="title-bar">
+        <div id="title" class="title"></div>
+        <div class="window-controls">
+            <div id="minimize-btn" class="control-btn minimize"></div>
+            <div id="maximize-btn" class="control-btn maximize"></div>
+            <div class="control-btn close"></div>
+        </div>
+    </div>
+    <div id="terminal" class="terminal"></div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- ELEMENTOS DO DOM ---
+    const terminalWindow = document.getElementById('terminal-window');
+    const titleBar = document.getElementById('title-bar');
+    const terminal = document.getElementById('terminal');
+    const minimizeBtn = document.getElementById('minimize-btn');
+    const maximizeBtn = document.getElementById('maximize-btn');
+    const title = document.getElementById('title');
+
+    // --- ESTADO DA APLICAÇÃO ---
+    let username = 'guest';
+    const commandHistory = [];
+    let historyIndex = -1;
+    let currentPath = '/home/guest';
+
+    // --- SISTEMA DE ARQUIVOS VIRTUAL (VFS) ---
+    const vfs = {
+        '/': { type: 'dir', content: ['home'] },
+        '/home': { type: 'dir', content: ['guest'] },
+        '/home/guest': { type: 'dir', content: ['Documents', 'README.md'] },
+        '/home/guest/Documents': { type: 'dir', content: ['project.txt'] },
+        '/home/guest/Documents/project.txt': { type: 'file', content: 'This is a secret project file.' },
+        '/home/guest/README.md': { type: 'file', content: 'Welcome to my interactive terminal!\n\n- Type `help` for a list of commands.\n- Use `TAB` for autocompletion.' },
+    };
+
+    const getVFSNode = (path) => {
+        const parts = path.split('/').filter(p => p);
+        let node = vfs['/'];
+        let current = '/';
+        for (const part of parts) {
+            if (node.type !== 'dir' || !node.content.includes(part)) return null;
+            current = resolvePath(current, part);
+            node = vfs[current];
+        }
+        return node;
+    };
+
+    const resolvePath = (base, rel) => new URL(rel, 'file://' + base + '/').pathname;
+
+    // --- GERENCIAMENTO DA JANELA ---
+    // (A lógica de arrastar, minimizar e maximizar foi mantida da versão anterior e omitida aqui para clareza)
+    // --- Window Management (Drag, Minimize, Maximize) ---
+    let isDragging = false, offsetX, offsetY;
+    let preMaximizeSize = { width: terminalWindow.style.width, height: terminalWindow.style.height, top: terminalWindow.style.top, left: terminalWindow.style.left };
+
+    titleBar.addEventListener('mousedown', (e) => {
+        if (e.target.classList.contains('control-btn')) return;
+        isDragging = true;
+        offsetX = e.clientX - terminalWindow.offsetLeft;
+        offsetY = e.clientY - terminalWindow.offsetTop;
+        terminalWindow.style.transition = 'none';
+    });
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging && !terminalWindow.classList.contains('maximized')) {
+            terminalWindow.style.left = `${e.clientX - offsetX}px`;
+            terminalWindow.style.top = `${e.clientY - offsetY}px`;
+        }
+    });
+    document.addEventListener('mouseup', () => { isDragging = false; terminalWindow.style.transition = 'all 0.3s ease-in-out'; });
+    maximizeBtn.addEventListener('click', () => {
+        if (!terminalWindow.classList.contains('maximized')) {
+            preMaximizeSize = { width: terminalWindow.offsetWidth + 'px', height: terminalWindow.offsetHeight + 'px', top: terminalWindow.style.top, left: terminalWindow.style.left };
+            terminalWindow.classList.add('maximized');
+        } else {
+            terminalWindow.classList.remove('maximized');
+            Object.assign(terminalWindow.style, preMaximizeSize);
+        }
+    });
+    minimizeBtn.addEventListener('click', () => { terminalWindow.classList.add('minimized'); });
+    titleBar.addEventListener('click', (e) => { if (e.target.id === 'title-bar' && terminalWindow.classList.contains('minimized')) terminalWindow.classList.remove('minimized'); });
+
+    // --- LÓGICA DO TERMINAL ---
+    const init = () => {
+        writeLine('Welcome to WebTerminal 2.0');
+        writeLine(`Current time is: ${new Date().toLocaleString()}`);
+        writeLine("Type 'help' to see available commands.");
+        writeLine('');
+        createCommandLine();
+    };
+
+    const createCommandLine = () => {
+        const pathForDisplay = currentPath.replace(`/home/${username}`, '~');
+        title.textContent = `${username}@web-terminal: ${pathForDisplay}`;
+
+        const promptDiv = document.createElement('div');
+        promptDiv.className = 'prompt';
+        promptDiv.innerHTML = `
+            <span class="prompt-user">${username}@web-terminal</span>
+            <span class="prompt-symbol">:</span>
+            <span class="prompt-path">${pathForDisplay}</span>
+            <span class="prompt-symbol">$</span>
+            <span class="input-area" contenteditable="true"></span>
+            <span class="cursor"></span>`;
+        terminal.appendChild(promptDiv);
+        promptDiv.querySelector('.input-area').focus();
+        terminal.scrollTop = terminal.scrollHeight;
+    };
+
+    const writeLine = (text) => {
+        const line = document.createElement('div');
+        line.className = 'output-line';
+        line.innerHTML = text.replace(/ /g, '&nbsp;');
+        terminal.appendChild(line);
+    };
+
+    // --- PROCESSAMENTO DE COMANDOS ---
+    const commands = {
+        help: () => `Available commands:
+        <br>  cat, cd, clear, date, echo, help, ls, neofetch, theme, whoami`,
+        clear: () => { terminal.innerHTML = ''; return ''; },
+        date: () => new Date().toString(),
+        whoami: () => username,
+        echo: (args) => args.join(' '),
+        theme: (args) => {
+            const themeName = args[0] || 'dark';
+            if (['dark', 'light', 'matrix'].includes(themeName)) {
+                document.body.dataset.theme = themeName;
+                return `Theme set to ${themeName}.`;
+            }
+            return `Error: theme not found. Available: dark, light, matrix.`;
+        },
+        neofetch: () => `
+        <span style="color: var(--prompt);"> ${username}@web-terminal</span>
+        <br>  ------------------
+        <br>  <span style="color: var(--prompt);">OS:</span> WebTerminal v2.0 (Browser)
+        <br>  <span style="color: var(--prompt);">Kernel:</span> JS DOM Renderer
+        <br>  <span style="color: var(--prompt);">Uptime:</span> ${Math.floor(performance.now()/1000)} seconds
+        <br>  <span style="color: var(--prompt);">Shell:</span> bash 5.1
+        <br>  <span style="color: var(--prompt);">Resolution:</span> ${window.innerWidth}x${window.innerHeight}
+        <br>  <span style="color: var(--prompt);">Theme:</span> ${document.body.dataset.theme || 'dark' }
+        `,
+        ls: (args) => {
+            const node = getVFSNode(currentPath);
+            if (node && node.type === 'dir') {
+                return node.content.map(item => {
+                    const itemPath = resolvePath(currentPath, item);
+                    const itemNode = vfs[itemPath];
+                    const className = itemNode.type === 'dir' ? 'directory' : 'file';
+                    return `<span class="ls-item ${className}">${item}</span>`;
+                }).join('&nbsp;&nbsp;');
+            }
+            return 'ls: cannot access directory: No such file or directory';
+        },
+        cd: (args) => {
+            const target = args[0] || `/home/${username}`;
+            if (target === '..') {
+                const parentPath = resolvePath(currentPath, '..');
+                if (getVFSNode(parentPath)) {
+                    currentPath = parentPath;
+                    return '';
+                }
+            }
+            const newPath = resolvePath(currentPath, target);
+            const node = getVFSNode(newPath);
+            if (node && node.type === 'dir') {
+                currentPath = newPath;
+                return '';
+            }
+            return `cd: no such file or directory: ${target}`;
+        },
+        cat: (args) => {
+            const targetPath = resolvePath(currentPath, args[0] || '');
+            const node = vfs[targetPath];
+            if (node && node.type === 'file') {
+                return node.content;
+            }
+            return `cat: ${args[0]}: No such file or directory`;
+        }
+    };
+
+    const executeCommand = (cmdText) => {
+        if (cmdText) commandHistory.unshift(cmdText);
+        historyIndex = -1;
+        const [command, ...args] = cmdText.trim().split(' ').filter(i => i);
+
+        let output = '';
+        if (command) {
+            output = commands[command] ? commands[command](args) : `bash: command not found: ${command}`;
+        }
+        if (output) writeLine(output);
+
+        createCommandLine();
+    };
+
+    const handleTabCompletion = (inputArea) => {
+        const text = inputArea.innerText;
+        const toComplete = text.split(' ').pop();
+        if (!toComplete) return;
+
+        const available = [...Object.keys(commands)];
+        const node = getVFSNode(currentPath);
+        if (node.type === 'dir') available.push(...node.content);
+
+        const matches = available.filter(item => item.startsWith(toComplete));
+        if (matches.length === 1) {
+            const parts = text.split(' ');
+            parts[parts.length - 1] = matches[0];
+            inputArea.innerText = parts.join(' ');
+            // Mover cursor para o final
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.selectNodeContents(inputArea);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+    };
+
+    // --- EVENT LISTENERS ---
+    terminal.addEventListener('keydown', (e) => {
+        const inputArea = e.target;
+        if (inputArea.className !== 'input-area') return;
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            inputArea.contenteditable = 'false';
+            inputArea.closest('.prompt').querySelector('.cursor').remove();
+            executeCommand(inputArea.innerText);
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (e.key === 'ArrowUp' && historyIndex < commandHistory.length - 1) historyIndex++;
+            if (e.key === 'ArrowDown' && historyIndex > 0) historyIndex--;
+            inputArea.innerText = historyIndex >= 0 ? commandHistory[historyIndex] : '';
+        } else if (e.key === 'Tab') {
+            e.preventDefault();
+            handleTabCompletion(inputArea);
+        }
+    });
+
+    terminal.addEventListener('click', () => {
+        const latestInput = terminal.querySelector('.input-area[contenteditable="true"]');
+        if (latestInput) latestInput.focus();
+    });
+
+    init();
+});
+</script>
+</body>
+</html>

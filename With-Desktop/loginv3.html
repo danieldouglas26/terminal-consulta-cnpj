@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debian Interactive Terminal</title>
+    <style>
+        :root {
+            --background-color: rgba(30, 30, 30, 0.9);
+            --text-color: #00FF00;
+            --font-family: 'Courier New', Courier, monospace;
+            --title-bar-color: #2c2c2c;
+        }
+
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        body {
+            background-image: url('debian-linux-4k-ro.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            font-family: var(--font-family);
+        }
+
+        .terminal-window {
+            width: 800px;
+            height: 500px;
+            background-color: var(--background-color);
+            border: 1px solid #444;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            backdrop-filter: blur(5px);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s ease;
+        }
+
+        /* Estilos para janela maximizada */
+        .terminal-window.maximized {
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            transform: none;
+            border-radius: 0;
+            border: none;
+        }
+
+        /* Estilos para janela minimizada */
+        .terminal-window.minimized {
+            height: 38px; /* Altura da title-bar */
+            width: 250px;
+            top: calc(100% - 38px);
+            left: 20px;
+            transform: none;
+        }
+
+        .title-bar {
+            background-color: var(--title-bar-color);
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+            flex-shrink: 0;
+        }
+
+        .title {
+            color: #dcdcdc;
+            font-size: 14px;
+            font-family: Arial, Helvetica, sans-serif;
+            -webkit-user-select: none; user-select: none;
+        }
+
+        .window-controls { display: flex; gap: 8px; }
+        .control-btn { width: 12px; height: 12px; border-radius: 50%; cursor: pointer; }
+        .close { background-color: #ff5f56; }
+        .minimize { background-color: #ffbd2e; }
+        .maximize { background-color: #27c93f; }
+
+        .terminal {
+            flex-grow: 1;
+            padding: 10px;
+            color: var(--text-color);
+            font-size: 16px;
+            overflow-y: auto;
+            word-break: break-all;
+        }
+
+        .line, .output-line { white-space: pre-wrap; }
+        .prompt-label, .prompt-user { margin-right: 10px; }
+        .input-area {
+            display: inline-block;
+            outline: none;
+            border: none;
+            background: transparent;
+            color: inherit;
+            font-family: inherit;
+            font-size: inherit;
+            width: 80%;
+        }
+
+        .cursor {
+            display: inline-block;
+            background-color: var(--text-color);
+            width: 10px;
+            height: 1.2em;
+            animation: blink 1s step-end infinite;
+            vertical-align: bottom;
+        }
+        @keyframes blink { 50% { background-color: transparent; } }
+    </style>
+</head>
+<body>
+
+<div id="terminal-window" class="terminal-window">
+    <div id="title-bar" class="title-bar">
+        <div class="title">daniel@debian: ~</div>
+        <div class="window-controls">
+            <div id="minimize-btn" class="control-btn minimize"></div>
+            <div id="maximize-btn" class="control-btn maximize"></div>
+            <div class="control-btn close"></div>
+        </div>
+    </div>
+    <div id="terminal" class="terminal">
+        </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Elementos da Janela
+    const terminalWindow = document.getElementById('terminal-window');
+    const titleBar = document.getElementById('title-bar');
+    const terminal = document.getElementById('terminal');
+    const minimizeBtn = document.getElementById('minimize-btn');
+    const maximizeBtn = document.getElementById('maximize-btn');
+
+    // Estado da Aplicação
+    let state = 'LOGIN'; // LOGIN, PASSWORD, LOGGED_IN
+    let username = '';
+    const commandHistory = [];
+    let historyIndex = -1;
+
+    // --- Gerenciamento da Janela (Arrastar, Minimizar, Maximizar) ---
+
+    let isDragging = false;
+    let offsetX, offsetY;
+    let preMaximizeSize = { width: terminalWindow.style.width, height: terminalWindow.style.height, top: terminalWindow.style.top, left: terminalWindow.style.left };
+
+    titleBar.addEventListener('mousedown', (e) => {
+        if (e.target.classList.contains('control-btn')) return;
+        isDragging = true;
+        offsetX = e.clientX - terminalWindow.offsetLeft;
+        offsetY = e.clientY - terminalWindow.offsetTop;
+        terminalWindow.style.transition = 'none'; // Desativa transição ao arrastar
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging && !terminalWindow.classList.contains('maximized')) {
+            terminalWindow.style.left = `${e.clientX - offsetX}px`;
+            terminalWindow.style.top = `${e.clientY - offsetY}px`;
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+        terminalWindow.style.transition = 'all 0.3s ease'; // Reativa transição
+    });
+
+    maximizeBtn.addEventListener('click', () => {
+        if (!terminalWindow.classList.contains('maximized')) {
+            preMaximizeSize = {
+                width: terminalWindow.offsetWidth + 'px',
+                height: terminalWindow.offsetHeight + 'px',
+                top: terminalWindow.style.top,
+                left: terminalWindow.style.left,
+            };
+            terminalWindow.classList.add('maximized');
+        } else {
+            terminalWindow.classList.remove('maximized');
+            Object.assign(terminalWindow.style, preMaximizeSize);
+        }
+    });
+
+    minimizeBtn.addEventListener('click', () => {
+        terminalWindow.classList.add('minimized');
+    });
+
+    titleBar.addEventListener('click', (e) => {
+        if(e.target.classList.contains('title-bar') && terminalWindow.classList.contains('minimized')) {
+            terminalWindow.classList.remove('minimized');
+        }
+    });
+
+    // --- Lógica do Terminal ---
+
+    const init = () => {
+        terminal.innerHTML = `
+            <div class="line">Last login: ${new Date().toDateString()} from 192.168.1.10</div>
+            <div class="line">Linux 6.1.0-18-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.76-1</div>
+            <div class="line">&nbsp;</div>`;
+        createLoginPrompt();
+    };
+
+    const createLoginPrompt = () => {
+        state = 'LOGIN';
+        const prompt = createPrompt('login:', 'login-input');
+        terminal.appendChild(prompt);
+        prompt.querySelector('.input-area').focus();
+    };
+
+    const createPasswordPrompt = () => {
+        state = 'PASSWORD';
+        const prompt = createPrompt('Password:', 'password-input');
+        prompt.querySelector('.input-area').style.webkitTextSecurity = 'disc';
+        terminal.appendChild(prompt);
+        prompt.querySelector('.input-area').focus();
+    };
+
+    const loginSuccess = () => {
+        state = 'LOGGED_IN';
+        terminal.innerHTML += `
+            <div class="output-line">\nWelcome, ${username}!\n</div>
+            <div class="output-line">Type 'help' to see available commands.</div>`;
+        createCommandLine();
+    };
+
+    const createCommandLine = () => {
+        const prompt = createPrompt(`${username}@debian:~$`, 'cmd-input', true);
+        terminal.appendChild(prompt);
+        prompt.querySelector('.input-area').focus();
+        terminal.scrollTop = terminal.scrollHeight; // Rola para o final
+    };
+
+    const createPrompt = (labelText, inputId, isUserPrompt = false) => {
+        const promptDiv = document.createElement('div');
+        promptDiv.className = 'prompt';
+        const labelClass = isUserPrompt ? 'prompt-user' : 'prompt-label';
+        promptDiv.innerHTML = `
+            <span class="${labelClass}">${labelText}</span>
+            <span id="${inputId}" class="input-area" contenteditable="true"></span>
+            <span class="cursor"></span>`;
+        return promptDiv;
+    };
+
+    const executeCommand = (cmdText) => {
+        commandHistory.unshift(cmdText);
+        historyIndex = -1;
+
+        const [command, ...args] = cmdText.trim().split(' ').filter(i => i);
+        let output = '';
+
+        switch (command) {
+            case 'clear':
+                terminal.innerHTML = ''; // Limpa tudo, depois o prompt é recriado
+                break;
+            case 'ls':
+                output = 'Documents    Downloads    Music    Pictures    Videos    README.md';
+                break;
+            case 'date':
+                output = new Date().toString();
+                break;
+            case 'whoami':
+                output = username;
+                break;
+            case 'help':
+                output = `Available commands:\n  ls         - List directory contents\n  clear      - Clear the terminal screen\n  date       - Display the current date and time\n  whoami     - Display the current user\n  help       - Show this help message`;
+                break;
+            case '':
+                break; // Não faz nada se o comando for vazio
+            default:
+                output = `bash: command not found: ${command}`;
+        }
+
+        if (output) {
+            const outputLine = document.createElement('div');
+            outputLine.className = 'output-line';
+            outputLine.innerText = output;
+            terminal.appendChild(outputLine);
+        }
+
+        createCommandLine();
+    };
+
+    terminal.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const currentInput = e.target;
+            const inputValue = currentInput.innerText.trim();
+            currentInput.contenteditable = 'false'; // Trava o input atual
+
+            // Remove o cursor piscando da linha anterior
+            const parentPrompt = currentInput.closest('.prompt');
+            if (parentPrompt) {
+                 const cursor = parentPrompt.querySelector('.cursor');
+                 if(cursor) cursor.remove();
+            }
+
+            if (state === 'LOGIN') {
+                username = inputValue;
+                createPasswordPrompt();
+            } else if (state === 'PASSWORD') {
+                if (username === 'daniel' && inputValue === '1234') {
+                    loginSuccess();
+                } else {
+                    terminal.innerHTML += `<div class="output-line">\nLogin incorrect</div>`;
+                    init();
+                }
+            } else if (state === 'LOGGED_IN') {
+                executeCommand(inputValue);
+            }
+        } else if (state === 'LOGGED_IN' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+            e.preventDefault();
+            if (e.key === 'ArrowUp') {
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                }
+            } else { // ArrowDown
+                if (historyIndex > 0) {
+                    historyIndex--;
+                }
+            }
+            const inputArea = e.target;
+            inputArea.innerText = historyIndex >= 0 ? commandHistory[historyIndex] : '';
+            // Move o cursor para o final do texto
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.selectNodeContents(inputArea);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+    });
+
+    terminal.addEventListener('click', (e) => {
+        const latestInput = terminal.querySelector('.input-area[contenteditable="true"]');
+        if (latestInput) latestInput.focus();
+    });
+
+    // Inicia o terminal
+    init();
+});
+</script>
+
+</body>
+</html>

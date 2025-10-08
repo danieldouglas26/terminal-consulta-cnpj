@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debian Terminal Login</title>
+    <style>
+        :root {
+            --background-color: rgba(30, 30, 30, 0.85); /* Fundo do terminal semi-transparente */
+            --text-color: #00FF00;
+            --font-family: 'Courier New', Courier, monospace;
+            --title-bar-color: #2c2c2c;
+        }
+
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Impede a rolagem da página inteira */
+        }
+
+        body {
+            /* Imagem de fundo do Desktop Debian 12 */
+            background-image: url('https://images.hdqwalls.com/wallpapers/debian-linux-4k-ro.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: var(--font-family);
+        }
+
+        .terminal-window {
+            width: 750px;
+            height: 480px;
+            background-color: var(--background-color);
+            border: 1px solid #444;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            backdrop-filter: blur(5px); /* Efeito de vidro fosco no fundo */
+        }
+
+        .title-bar {
+            background-color: var(--title-bar-color);
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move; /* Simula que a janela pode ser movida */
+        }
+
+        .title {
+            color: #dcdcdc;
+            font-size: 14px;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .close { background-color: #ff5f56; }
+        .minimize { background-color: #ffbd2e; }
+        .maximize { background-color: #27c93f; }
+
+        .terminal {
+            flex-grow: 1; /* Faz o terminal ocupar o espaço restante */
+            padding: 10px;
+            color: var(--text-color);
+            font-size: 16px;
+            overflow-y: auto; /* Adiciona rolagem apenas dentro do terminal */
+        }
+
+        .line {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .prompt {
+            display: flex;
+            align-items: center;
+        }
+
+        .prompt-label {
+            margin-right: 10px;
+        }
+
+        .input-area {
+            display: inline-block;
+            outline: none;
+            border: none;
+            background: transparent;
+            color: var(--text-color);
+            font-family: var(--font-family);
+            font-size: inherit;
+            width: calc(100% - 120px);
+        }
+
+        .cursor {
+            display: inline-block;
+            background-color: var(--text-color);
+            width: 10px;
+            height: 1.2em;
+            animation: blink 1s step-end infinite;
+            vertical-align: bottom;
+        }
+
+        @keyframes blink {
+            from, to { background-color: transparent; }
+            50% { background-color: var(--text-color); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="terminal-window">
+    <div class="title-bar">
+        <div class="title">daniel@debian: ~</div>
+        <div class="window-controls">
+            <div class="control-btn minimize"></div>
+            <div class="control-btn maximize"></div>
+            <div class="control-btn close"></div>
+        </div>
+    </div>
+    <div id="terminal" class="terminal">
+        <div class="line">Last login: Tue Oct 7 00:27:00 2025 from 192.168.1.10</div>
+        <div class="line">Linux 6.1.0-18-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.76-1 (2024-02-01) x86_64</div>
+        <div class="line">Welcome to your personal terminal.</div>
+        <div class="line">&nbsp;</div>
+        <div id="login-prompt" class="prompt">
+            <span class="prompt-label">login:</span>
+            <span id="login-input" class="input-area" contenteditable="true"></span>
+            <span class="cursor"></span>
+        </div>
+        <div id="password-prompt" class="prompt" style="display: none;">
+            <span class="prompt-label">Password:</span>
+            <span id="password-input" class="input-area" contenteditable="true" style="-webkit-text-security: disc;"></span>
+            <span class="cursor"></span>
+        </div>
+        <div id="output"></div>
+    </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const terminalWindow = document.querySelector('.terminal-window');
+    const terminal = document.getElementById('terminal');
+    const loginPrompt = document.getElementById('login-prompt');
+    const passwordPrompt = document.getElementById('password-prompt');
+    const loginInput = document.getElementById('login-input');
+    const passwordInput = document.getElementById('password-input');
+    const output = document.getElementById('output');
+
+    let username = '';
+
+    // Foca no input de login ao carregar
+    loginInput.focus();
+
+    // Permite focar no input correto ao clicar em qualquer lugar do terminal
+    terminal.addEventListener('click', () => {
+        if (loginPrompt.style.display !== 'none') {
+            loginInput.focus();
+        } else {
+            passwordInput.focus();
+        }
+    });
+
+    loginInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            username = loginInput.innerText.trim();
+            if (!username) return; // Não faz nada se o login estiver vazio
+
+            loginInput.setAttribute('contenteditable', 'false');
+            passwordPrompt.style.display = 'flex';
+            passwordInput.focus();
+        }
+    });
+
+    passwordInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const password = this.innerText.trim();
+            this.setAttribute('contenteditable', 'false');
+
+            const authLine = document.createElement('div');
+            authLine.className = 'line';
+            authLine.innerText = 'Authenticating...';
+            output.appendChild(authLine);
+
+            // Simula uma verificação de login
+            setTimeout(() => {
+                output.innerHTML = '';
+                // Credenciais de exemplo: daniel / 1234
+                if (username === 'daniel' && password === '1234') {
+                    const successMsg = document.createElement('div');
+                    successMsg.className = 'line';
+                    successMsg.innerText = `\nLogin successful.\nWelcome, ${username}!\n$ `;
+                    output.appendChild(successMsg);
+                    // Desativa os prompts após o login
+                    loginPrompt.style.display = 'none';
+                    passwordPrompt.style.display = 'none';
+                } else {
+                    const errorMsg = document.createElement('div');
+                    errorMsg.className = 'line';
+                    errorMsg.innerText = '\nLogin incorrect';
+                    output.appendChild(errorMsg);
+
+                    // Reseta para tentar novamente
+                    setTimeout(() => {
+                        resetLogin();
+                    }, 1500);
+                }
+            }, 1000);
+        }
+    });
+
+    function resetLogin() {
+        output.innerHTML = '';
+        loginInput.innerText = '';
+        passwordInput.innerText = '';
+
+        loginInput.setAttribute('contenteditable', 'true');
+        passwordInput.setAttribute('contenteditable', 'true');
+
+        passwordPrompt.style.display = 'none';
+
+        loginInput.focus();
+    }
+});
+</script>
+
+</body>
+</html>
