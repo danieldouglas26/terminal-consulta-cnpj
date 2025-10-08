@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'startx':
                 addLine("Iniciando interface gráfica...", 'text-info');
-                window.open('../With-Desktop/loginv3.html', '_blank');
+                window.open('interface/interface_terminalv3.html', '_blank');
                 break;
             default:
                 addLine(`bash: comando não encontrado: ${command}`, 'text-error');
